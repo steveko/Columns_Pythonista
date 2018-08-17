@@ -63,8 +63,12 @@ class ColumnsGameScene (Scene):
 		# Make Size object for future use
 		self.square_size = Size(self.square_len, self.square_len)
 		
+		self.message_background = SpriteNode(None, position=grid_area_pos, size=grid_area_size)
+		self.message_background.color = '#c5c5c5'
+		self.message_background.alpha = 0.8
 		self.message_label = LabelNode("foo", font=('Arial Rounded MT Bold', 30.0))
 		self.message_label.color = 'black'
+		self.message_background.add_child(self.message_label)
 		
 		# Add the play area node to the scene
 		self.add_child(self.play_area)
@@ -456,10 +460,10 @@ class ColumnsGameScene (Scene):
 			
 	def show_game_message(self, message):
 			self.message_label.text = message
-			self.play_area.add_child(self.message_label)
+			self.play_area.add_child(self.message_background)
 			
 	def hide_game_message(self):
-		self.message_label.remove_from_parent()
+		self.message_background.remove_from_parent()
 		
 if __name__ == '__main__':
 	run(ColumnsGameScene(), show_fps=False)
