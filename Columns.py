@@ -2,7 +2,6 @@ from scene import *
 import sound
 import random
 import math
-A = Action
 
 NUM_ROWS = 18
 NUM_COLUMNS = 6
@@ -13,6 +12,8 @@ GREEN = 2
 PURPLE = 3
 RED = 4
 YELLOW = 5
+
+NUM_COLORS = 6
 
 TEXTURES = ['pzl:Blue3', 'pzl:Gray3', 'pzl:Green3', 'pzl:Purple3', 'pzl:Red3', 'pzl:Yellow3']
 
@@ -29,6 +30,7 @@ FIELD_COLOR = (.83, 1.0, .98)
 MESSAGE_BACKGROUND_COLOR = 'black'
 MESSAGE_TEXT_COLOR = 'white'
 
+
 class SquareNode (SpriteNode):
 	
 	def __init__(self, kind, coords):
@@ -42,8 +44,20 @@ class SquareNode (SpriteNode):
 		self.texture = Texture(TEXTURES[kind])
 		self.size = save_size
 
+
 class ColumnsGameScene (Scene):
-	
+
+	def setup(self):
+		self.background_color = BACKGROUND_COLOR
+		
+		self.setup_nodes()
+		self.setup_game_state()
+		
+		# Create touches_dict dictionary, used for detecting swipes
+		self.touches_dict = {}
+
+		self.new_game()
+			
 	def setup_nodes(self):
 		'''
 		Setup all the node objects that scene uses.
@@ -121,36 +135,14 @@ class ColumnsGameScene (Scene):
 		self.destroy_tick_delay = 0.15
 		self.last_destroy_phase_time = 0.0
 		
-	
-	def setup(self):
-		self.background_color = BACKGROUND_COLOR
-		
-		self.setup_nodes()
-		self.setup_game_state()
-		
-		# Create touches_dict dictionary, used for detecting swipes
-		self.touches_dict = {}
-
-		self.new_game()
-		
-		
 	def set_game_over(self):
 		self.game_over = True
 		self.game_over_time = self.t
 		self.show_game_message("GAME OVER")
 		
 	def new_game(self):
-		
-		for square in self.falling_squares:
-			square.remove_from_parent()
-			
-		self.falling_squares = []
-		
-		for coord in self.static_squares:
-			square = self.static_squares[coord]
-			square.remove_from_parent()
-			
-		self.static_squares = {}
+		self.clear_falling_squares()
+		self.clear_static_squares()
 		
 		self.destroy_phase = 0
 		self.last_destroy_phase_time = 0.0
@@ -166,6 +158,16 @@ class ColumnsGameScene (Scene):
 		
 		self.new_falling_piece()
 		
+	def clear_falling_squares(self):
+		for square in self.falling_squares:
+			square.remove_from_parent()			
+		self.falling_squares = []
+		
+	def clear_static_squares(self):
+		for coord in self.static_squares:
+			square = self.static_squares[coord]
+			square.remove_from_parent()
+		self.static_squares = {}
 		
 	def update_score(self):
 		self.scoreboard.text = "Score: %d" % (self.score)
@@ -174,21 +176,19 @@ class ColumnsGameScene (Scene):
 			self.next_speedup_score += 100
 									
 	def did_change_size(self):
-		
 		(screen_width, screen_height) = self.size
 		
-		# Recenter play area on screen
-		pos = self.size/2
-		self.root_node.position = pos
+		# Center root node on screen
+		self.root_node.position = self.size/2
 		
-		# Calculate new play area height based on screen dimensions
-		new_play_area_height = screen_height
+		# Calculate root node height based on new screen dimensions
+		new_root_node_height = screen_height
 
-		# Calculate scale factor that when multiplied with self.root_node_height will result
-		# in new_play_area_height
-		scale_factor = new_play_area_height / self.root_node_height
+		# Calculate the scale factor that when multiplied with self.root_node_height
+		# will result in new_root_node_height
+		scale_factor = new_root_node_height / self.root_node_height
 		
-		# Scale the play area node
+		# Scale the root node
 		self.root_node.x_scale = scale_factor
 		self.root_node.y_scale = scale_factor
 		
@@ -196,7 +196,7 @@ class ColumnsGameScene (Scene):
 		self.falling_squares = []
 		
 		for i in range(3):
-			square = self.create_square(random.randrange(6), (18+i, 3))
+			square = self.create_square(random.randrange(NUM_COLORS), (18+i, 3))
 			self.falling_squares.append(square)
 
 		self.last_moved = self.t
