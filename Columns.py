@@ -24,54 +24,78 @@ NEG_DIAG = [(1, -1), (-1, 1)]
 LINES = [UP_DOWN, LEFT_RIGHT, POS_DIAG, NEG_DIAG]
 
 BACKGROUND_COLOR = (.4, .4, .4)
+FIELD_COLOR = (.83, 1.0, .98)
+
+MESSAGE_BACKGROUND_COLOR = 'black'
+MESSAGE_TEXT_COLOR = 'white'
+
+class SquareNode (SpriteNode):
+	
+	def __init__(self, kind, coords):
+		super().__init__(TEXTURES[kind])
+		self.kind = kind
+		self.coords = coords
+		
+	def set_kind(self, kind):
+		save_size = self.size
+		self.kind = kind
+		self.texture = Texture(TEXTURES[kind])
+		self.size = save_size
 
 class ColumnsGameScene (Scene):
 	
 	def setup_nodes(self):
+		'''
+		Setup all the node objects that scene uses.
+		'''
 		(screen_width, screen_height) = self.size
 		
-		# Create a node for the play area. This is the parent node for all of the squares.
-		# Having a single parent play area node will make it easier to adjust to screen
-		# orientation changes.
+		# Create a single root node that all other nodes are childen of. Having a
+		# single parent makes it easier to scale the game when the screen size
+		# changes (e.g. when screen orientation is changed).
+
+		self.root_node_height = screen_height
 		
-		# Play area height is the screen_height minus some margin area at the top and bottom
-		self.play_area_height = screen_height
-		
-		# Use the play area height to determine the square side length,
 		# Reserve 2 "rows" for the score
-		self.square_len = self.play_area_height / (NUM_ROWS+2)
-		
-		# Use square side length to determine the play area width
-		self.play_area_width = self.square_len * NUM_COLUMNS
-		
-		# Create a node for the play area, centered on the screen
-		pos = self.size/2
-		self.play_area = SpriteNode(None, position=pos, size=(self.play_area_width, self.play_area_height))
-		self.play_area.color = BACKGROUND_COLOR
-		
-		grid_area_pos = (0, self.square_len)
-		grid_area_size = (self.play_area_width, self.square_len*NUM_ROWS)
-		
-		self.grid_area = SpriteNode(None, position=grid_area_pos, size=grid_area_size)
-		self.grid_area.color = (.83, 1.0, .98)
-		self.play_area.add_child(self.grid_area)
-		
-		self.score_display = LabelNode("Score: 0", font=('Arial Rounded MT Bold', 30.0))
-		self.score_display.position = (0, -self.square_len*((NUM_ROWS/2)))
-		self.play_area.add_child(self.score_display)
-		
-		# Make Size object for future use
+		self.square_len = self.root_node_height / (NUM_ROWS+2)
 		self.square_size = Size(self.square_len, self.square_len)
+				
+		self.root_node_width = self.square_len * NUM_COLUMNS
 		
-		self.message_background = SpriteNode(None, position=grid_area_pos, size=grid_area_size)
-		self.message_background.color = '#c5c5c5'
+		center = self.size/2
+		node_size = (self.root_node_width, self.root_node_height)
+		self.root_node = SpriteNode(None, position=center, size=node_size)
+		self.root_node.color = BACKGROUND_COLOR
+		
+		# The field node is the area where all the blocks exist. It is the
+		# parent node for all of the block nodes.
+		
+		field_pos = (0, self.square_len)
+		field_size = (self.root_node_width, self.square_len*NUM_ROWS)
+		
+		self.field = SpriteNode(None, position=field_pos, size=field_size)
+		self.field.color = FIELD_COLOR
+		self.root_node.add_child(self.field)
+		
+		# The scoreboard is a LabelNode that shows the score.
+		
+		self.scoreboard = LabelNode("Score: 0", font=('Arial Rounded MT Bold', 30.0))
+		self.scoreboard.position = (0, -self.square_len*((NUM_ROWS/2)))
+		self.root_node.add_child(self.scoreboard)
+		
+		# message_background and message_label are used to show text overlaying the
+		# field. The opacity of the message_background can be set to completely
+		# obscure the field (e.g. when the game is paused).
+		
+		self.message_background = SpriteNode(None, position=field_pos, size=field_size)
+		self.message_background.color = MESSAGE_BACKGROUND_COLOR
 		self.message_background.alpha = 0.8
 		self.message_label = LabelNode("foo", font=('Arial Rounded MT Bold', 30.0))
-		self.message_label.color = 'black'
+		self.message_label.color = MESSAGE_TEXT_COLOR
 		self.message_background.add_child(self.message_label)
 		
-		# Add the play area node to the scene
-		self.add_child(self.play_area)
+		# Add the root node to the scene
+		self.add_child(self.root_node)
 		
 	def setup_game_state(self):		
 		# Create an array to hold the 3 squares that comprise the falling piece		
@@ -79,7 +103,7 @@ class ColumnsGameScene (Scene):
 		
 		# Create a dict to hold the squares that have completely fallen. Keys are
 		# (row, column) tuples and values are SpriteNode objects.
-		self.fallen_squares = {}
+		self.static_squares = {}
 		
 		# A set of (row, column) tuples indicating which squares should be destroyed
 		self.coords_to_destroy = set()
@@ -91,7 +115,7 @@ class ColumnsGameScene (Scene):
 		# 2 - Show squares
 		# 3 - Hide squares
 		# 4 - Show squares
-		# 5 - Explosion
+		# 5 - Hide squares
 		# 6 - Remove blocks and close resulting gaps
 		self.destroy_phase = 0
 		self.destroy_tick_delay = 0.15
@@ -122,11 +146,11 @@ class ColumnsGameScene (Scene):
 			
 		self.falling_squares = []
 		
-		for coord in self.fallen_squares:
-			square = self.fallen_squares[coord]
+		for coord in self.static_squares:
+			square = self.static_squares[coord]
 			square.remove_from_parent()
 			
-		self.fallen_squares = {}
+		self.static_squares = {}
 		
 		self.destroy_phase = 0
 		self.last_destroy_phase_time = 0.0
@@ -144,7 +168,7 @@ class ColumnsGameScene (Scene):
 		
 		
 	def update_score(self):
-		self.score_display.text = "Score: %d" % (self.score)
+		self.scoreboard.text = "Score: %d" % (self.score)
 		if self.score > self.next_speedup_score:
 			self.fall_delay *= 0.8
 			self.next_speedup_score += 100
@@ -155,18 +179,18 @@ class ColumnsGameScene (Scene):
 		
 		# Recenter play area on screen
 		pos = self.size/2
-		self.play_area.position = pos
+		self.root_node.position = pos
 		
 		# Calculate new play area height based on screen dimensions
 		new_play_area_height = screen_height
 
-		# Calculate scale factor that when multiplied with self.play_area_height will result
+		# Calculate scale factor that when multiplied with self.root_node_height will result
 		# in new_play_area_height
-		scale_factor = new_play_area_height / self.play_area_height
+		scale_factor = new_play_area_height / self.root_node_height
 		
 		# Scale the play area node
-		self.play_area.x_scale = scale_factor
-		self.play_area.y_scale = scale_factor
+		self.root_node.x_scale = scale_factor
+		self.root_node.y_scale = scale_factor
 		
 	def new_falling_piece(self):
 		self.falling_squares = []
@@ -184,22 +208,12 @@ class ColumnsGameScene (Scene):
 		return (x_pos, y_pos)
 		
 	def create_square(self, kind, coords):
-		
-		pos = self.position_for_coords(coords)
-		
-		square_node = SpriteNode(TEXTURES[kind], position=pos, size=self.square_size)	
-		square_node.kind = kind
-		square_node.coords = coords
-		
-		self.grid_area.add_child(square_node)
-		
+		square_node = SquareNode(kind, coords)
+		square_node.position = self.position_for_coords(coords)
+		square_node.size = self.square_size
+		self.field.add_child(square_node)
 		return square_node
-		
-	def set_square_kind(self, square, kind):
-		square.kind = kind
-		square.texture = Texture(TEXTURES[kind])
-		square.size = self.square_size
-		
+				
 	def move_square(self, square, delta_row, delta_col):
 		(row, col) = square.coords
 		row += delta_row
@@ -222,7 +236,7 @@ class ColumnsGameScene (Scene):
 			else:
 				row -= 1
 				coords = (row, col)
-				if coords in self.fallen_squares:
+				if coords in self.static_squares:
 					return False
 		
 		return True
@@ -230,7 +244,7 @@ class ColumnsGameScene (Scene):
 	def coalesce_falling_piece(self):
 		for square in self.falling_squares:
 			coords = square.coords
-			self.fallen_squares[coords] = square
+			self.static_squares[coords] = square
 		self.chain_reaction = 1
 		self.update_coords_to_destroy(self.falling_squares)
 			
@@ -251,7 +265,7 @@ class ColumnsGameScene (Scene):
 		else:
 			# no more squares to destroy, so check for game over state
 			for column in range(NUM_COLUMNS):
-				if (NUM_ROWS, column) in self.fallen_squares:
+				if (NUM_ROWS, column) in self.static_squares:
 					self.set_game_over()
 		
 	def check_for_line_at_coords(self, kind, coords, line):
@@ -263,8 +277,8 @@ class ColumnsGameScene (Scene):
 				row += delta_row
 				col += delta_col
 				test_coords = (row, col)
-				if test_coords in self.fallen_squares:
-					test_square = self.fallen_squares[test_coords]
+				if test_coords in self.static_squares:
+					test_square = self.static_squares[test_coords]
 					if test_square.kind == kind:
 						length += 1
 						coords_in_line.append(test_coords)
@@ -276,32 +290,29 @@ class ColumnsGameScene (Scene):
 			return []
 			
 	def do_destroy_phase(self):
+		p = self.destroy_phase
 		
-		if self.destroy_phase == 6:
+		if p == 6:
 			# remove squares and drop squares from above
 			self.destroy_phase = 0
 			self.remove_squares_at_coords(self.coords_to_destroy)
-		else:					
-			if self.destroy_phase == 1 or self.destroy_phase == 3:
+		else:			
+			if p == 1 or p == 3 or p == 5:
 				# hide squares at coords
 				self.set_alpha(self.coords_to_destroy, 0.3)
-			elif self.destroy_phase == 2 or self.destroy_phase == 4:
+			elif p == 2 or p == 4:
 				# show squares at coords
 				self.set_alpha(self.coords_to_destroy, 1.0)
-			elif self.destroy_phase == 5:
-				# show explosions
-				self.set_texture(self.coords_to_destroy, Texture('emj:Star_1'))
 				
 			self.last_destroy_phase_time = self.t
 			self.destroy_phase += 1
 			
 	def remove_squares_at_coords(self, coords):
-		
 		self.score += (len(coords) - 2)*self.chain_reaction
 		self.update_score()
 		
 		for coord in coords:
-			square = self.fallen_squares.pop(coord)
+			square = self.static_squares.pop(coord)
 			square.remove_from_parent()
 		
 		# Close gaps in columns. Use any squares that are moved as seeds for the
@@ -310,7 +321,7 @@ class ColumnsGameScene (Scene):
 		seed_squares = []
 		
 		for c in range(NUM_COLUMNS):
-			column_bit_map = [(r, c) in self.fallen_squares for r in range(NUM_ROWS)]
+			column_bit_map = [(r, c) in self.static_squares for r in range(NUM_ROWS)]
 			if True in column_bit_map:
 				column_bit_map.reverse()
 				first = column_bit_map.index(True)
@@ -322,10 +333,10 @@ class ColumnsGameScene (Scene):
 						if column_bit_map[r] is False:
 							delta_row += 1
 						else:
-							square = self.fallen_squares[(r, c)]
+							square = self.static_squares[(r, c)]
 							self.move_square(square, -delta_row, 0)
-							del self.fallen_squares[(r, c)]
-							self.fallen_squares[(r-delta_row, c)] = square
+							del self.static_squares[(r, c)]
+							self.static_squares[(r-delta_row, c)] = square
 							seed_squares.append(square)
 							
 		self.chain_reaction += 1
@@ -333,14 +344,8 @@ class ColumnsGameScene (Scene):
 		
 	def set_alpha(self, coords, alpha):
 		for coord in coords:
-			square = self.fallen_squares[coord]
+			square = self.static_squares[coord]
 			square.alpha = alpha
-			
-	def set_texture(self, coords, texture):
-		for coord in coords:
-			square = self.fallen_squares[coord]
-			square.texture = texture
-			square.size = self.square_size
 						
 	def update(self):
 		if self.paused or self.game_over:
@@ -412,7 +417,7 @@ class ColumnsGameScene (Scene):
 		i = 0	
 		for square in self.falling_squares:
 			i = (i + 1) % 3
-			self.set_square_kind(square, kinds[i])
+			square.set_kind(kinds[i])
 		
 	def do_swipe_right(self):
 		if self.paused:
@@ -420,7 +425,7 @@ class ColumnsGameScene (Scene):
 		if len(self.falling_squares) > 0:
 			(row, col) = self.falling_squares[0].coords
 			if col < NUM_COLUMNS-1:
-				if (row, col+1) not in self.fallen_squares:
+				if (row, col+1) not in self.static_squares:
 					for square in self.falling_squares:
 						self.move_square(square, 0, 1)
 		
@@ -430,7 +435,7 @@ class ColumnsGameScene (Scene):
 		if len(self.falling_squares) > 0:
 			(row, col) = self.falling_squares[0].coords
 			if col > 0:
-				if (row, col-1) not in self.fallen_squares:
+				if (row, col-1) not in self.static_squares:
 					for square in self.falling_squares:
 						self.move_square(square, 0, -1)
 				
@@ -443,7 +448,7 @@ class ColumnsGameScene (Scene):
 			
 			while dest_row > 0:
 				dest_row -= 1
-				if (dest_row, col) in self.fallen_squares:
+				if (dest_row, col) in self.static_squares:
 					dest_row += 1
 					break
 			
@@ -454,13 +459,17 @@ class ColumnsGameScene (Scene):
 	def do_swipe_up(self):
 		self.paused = not self.paused
 		if self.paused:
-			self.show_game_message("PAUSED")
+			self.show_game_message("PAUSED", True)
 		else:
 			self.hide_game_message()
 			
-	def show_game_message(self, message):
+	def show_game_message(self, message, hide_board=False):
 			self.message_label.text = message
-			self.play_area.add_child(self.message_background)
+			if (hide_board):
+				self.message_background.alpha = 1.0
+			else:
+				self.message_background.alpha = 0.8
+			self.root_node.add_child(self.message_background)
 			
 	def hide_game_message(self):
 		self.message_background.remove_from_parent()
