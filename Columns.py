@@ -30,6 +30,9 @@ FIELD_COLOR = (.83, 1.0, .98)
 MESSAGE_BACKGROUND_COLOR = 'black'
 MESSAGE_TEXT_COLOR = 'white'
 
+INITIAL_DROP_TIME = 0.8
+POINTS_UNTIL_SPEEDUP = 50
+SPEEDUP_FACTOR = 0.8
 
 class SquareNode (SpriteNode):
 	
@@ -150,8 +153,8 @@ class ColumnsGameScene (Scene):
 		self.game_over = False
 		self.hide_game_message()
 						
-		self.fall_delay = 1.0
-		self.next_speedup_score = 100
+		self.fall_delay = INITIAL_DROP_TIME
+		self.next_speedup_score = POINTS_UNTIL_SPEEDUP
 		
 		self.score = 0
 		self.update_score()
@@ -172,8 +175,8 @@ class ColumnsGameScene (Scene):
 	def update_score(self):
 		self.scoreboard.text = "Score: %d" % (self.score)
 		if self.score > self.next_speedup_score:
-			self.fall_delay *= 0.8
-			self.next_speedup_score += 100
+			self.fall_delay *= SPEEDUP_FACTOR
+			self.next_speedup_score += POINTS_UNTIL_SPEEDUP
 									
 	def did_change_size(self):
 		(screen_width, screen_height) = self.size
