@@ -46,9 +46,59 @@ class SquareNode (SpriteNode):
 		self.kind = kind
 		self.texture = Texture(TEXTURES[kind])
 		self.size = save_size
+		
+		
+class GestureScene (Scene):
+	
+	def __init__(self):
+		super().__init__()
+		self.touches_dict = {}
+		
+	def touch_began(self, touch):
+		self.touches_dict[touch.touch_id] = (self.t, touch.location)
+	
+	def touch_ended(self, touch):
+		(start_touch_time, start_touch_loc) = self.touches_dict[touch.touch_id]
+		del self.touches_dict[touch.touch_id]
+		
+		TIME_THRESHHOLD = 0.5
+		DISTANCE_THRESHHOLD = 20.0
+		
+		# ignore long touches
+		if (self.t - start_touch_time) > TIME_THRESHHOLD:
+			return
+		
+		delta_x = touch.location.x - start_touch_loc.x
+		delta_y = touch.location.y - start_touch_loc.y
+				
+		if (abs(delta_x) < DISTANCE_THRESHHOLD) and (abs(delta_y) < DISTANCE_THRESHHOLD):
+			self.do_tap()
+		else:
+			if abs(delta_x) > abs(delta_y):
+				if delta_x > 0:
+					self.do_swipe_right()
+				else:
+					self.do_swipe_left()
+			else:
+				if delta_y > 0:
+					self.do_swipe_up()
+				else:
+					self.do_swipe_down()
 
-
-class ColumnsGameScene (Scene):
+	def do_swipe_right(self):
+		pass
+		
+	def do_swipe_left(self):
+		pass
+				
+	def do_swipe_down(self):
+		pass
+		
+	def do_swipe_up(self):
+		pass
+			
+			
+class ColumnsGameScene (GestureScene):
 
 	def setup(self):
 		self.background_color = BACKGROUND_COLOR
@@ -56,9 +106,6 @@ class ColumnsGameScene (Scene):
 		self.setup_nodes()
 		self.setup_game_state()
 		
-		# Create touches_dict dictionary, used for detecting swipes
-		self.touches_dict = {}
-
 		self.new_game()
 			
 	def setup_nodes(self):
@@ -366,40 +413,6 @@ class ColumnsGameScene (Scene):
 				self.coalesce_falling_piece()
 				self.new_falling_piece()
 	
-	def touch_began(self, touch):
-		self.touches_dict[touch.touch_id] = (self.t, touch.location)
-	
-	def touch_moved(self, touch):
-		pass
-			
-	def touch_ended(self, touch):
-		(start_touch_time, start_touch_loc) = self.touches_dict[touch.touch_id]
-		del self.touches_dict[touch.touch_id]
-		
-		TIME_THRESHHOLD = 0.5
-		DISTANCE_THRESHHOLD = 20.0
-		
-		# ignore long touches
-		if (self.t - start_touch_time) > TIME_THRESHHOLD:
-			return
-		
-		delta_x = touch.location.x - start_touch_loc.x
-		delta_y = touch.location.y - start_touch_loc.y
-				
-		if (abs(delta_x) < DISTANCE_THRESHHOLD) and (abs(delta_y) < DISTANCE_THRESHHOLD):
-			self.do_tap()
-		else:
-			if abs(delta_x) > abs(delta_y):
-				if delta_x > 0:
-					self.do_swipe_right()
-				else:
-					self.do_swipe_left()
-			else:
-				if delta_y > 0:
-					self.do_swipe_up()
-				else:
-					self.do_swipe_down()
-					
 	def do_tap(self):
 		if self.game_over:
 			if self.t < self.game_over_time + 3.0:
