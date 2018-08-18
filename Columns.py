@@ -53,7 +53,12 @@ class GestureScene (Scene):
 	def __init__(self):
 		super().__init__()
 		self.touches_dict = {}
-		
+		self.time_threshhold = 1.0
+		self.max_dx_tap = 20.0
+		self.max_dy_tap = 20.0
+		self.min_dx_swipe = 20.0
+		self.min_dy_swipe = 120.0
+				
 	def touch_began(self, touch):
 		self.touches_dict[touch.touch_id] = (self.t, touch.location)
 	
@@ -61,30 +66,33 @@ class GestureScene (Scene):
 		(start_touch_time, start_touch_loc) = self.touches_dict[touch.touch_id]
 		del self.touches_dict[touch.touch_id]
 		
-		TIME_THRESHHOLD = 0.5
-		DISTANCE_THRESHHOLD = 20.0
-		
 		# ignore long touches
-		if (self.t - start_touch_time) > TIME_THRESHHOLD:
+		if (self.t - start_touch_time) > self.time_threshhold:
 			return
 		
 		delta_x = touch.location.x - start_touch_loc.x
 		delta_y = touch.location.y - start_touch_loc.y
+		abs_dx = abs(delta_x) + 0.1
+		abs_dy = abs(delta_y) + 0.1
+		
+		# print("dx: %f, dy: %f, dx/dy: %f, dy/dx: %f" % (delta_x, delta_y, delta_x/delta_y, delta_y/delta_x))
 				
-		if (abs(delta_x) < DISTANCE_THRESHHOLD) and (abs(delta_y) < DISTANCE_THRESHHOLD):
+		if (abs_dx < self.max_dx_tap) and (abs_dy < self.max_dy_tap):
 			self.do_tap()
-		else:
-			if abs(delta_x) > abs(delta_y):
+		elif (abs_dx/abs_dy > 2.0) and (abs_dx > self.min_dx_swipe):
 				if delta_x > 0:
 					self.do_swipe_right()
 				else:
 					self.do_swipe_left()
-			else:
+		elif (abs_dy/abs_dx > 2.0) and (abs_dy > self.min_dy_swipe):
 				if delta_y > 0:
 					self.do_swipe_up()
 				else:
 					self.do_swipe_down()
 
+	def do_tap(self):
+		pass
+		
 	def do_swipe_right(self):
 		pass
 		
@@ -102,10 +110,8 @@ class ColumnsGameScene (GestureScene):
 
 	def setup(self):
 		self.background_color = BACKGROUND_COLOR
-		
 		self.setup_nodes()
 		self.setup_game_state()
-		
 		self.new_game()
 			
 	def setup_nodes(self):
