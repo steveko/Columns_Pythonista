@@ -34,13 +34,30 @@ INITIAL_DROP_TIME = 0.8
 POINTS_UNTIL_SPEEDUP = 50
 SPEEDUP_FACTOR = 0.8
 
+DESTROY_ALL_BLOCKS_THIS_COLOR = 1
+SPECIAL_BLOCK_PERCENTAGE = 5
+
 class SquareNode (SpriteNode):
 	
-	def __init__(self, kind, coords):
+	def __init__(self, kind, coords, side_effect=None):
 		super().__init__(TEXTURES[kind])
 		self.kind = kind
 		self.coords = coords
-		
+		self.side_effect = None
+			
+
+	def set_side_effect(self, side_effect):
+		# Remove any badges that may already exist
+		if self.side_effect:
+			for child in self.children:
+				child.remove_from_parent()
+
+		if side_effect == DESTROY_ALL_BLOCKS_THIS_COLOR:
+			badge = SpriteNode('pzl:Yellow2', size=self.size/2)
+			self.add_child(badge)
+			
+		self.side_effect = side_effect
+						
 	def set_kind(self, kind):
 		save_size = self.size
 		self.kind = kind
@@ -253,6 +270,8 @@ class ColumnsGameScene (GestureScene):
 		
 		for i in range(3):
 			square = self.create_square(random.randrange(NUM_COLORS), (18+i, 3))
+			if random.randrange(100) < SPECIAL_BLOCK_PERCENTAGE:
+				square.set_side_effect(DESTROY_ALL_BLOCKS_THIS_COLOR)
 			self.falling_squares.append(square)
 
 		self.last_moved = self.t
@@ -304,10 +323,17 @@ class ColumnsGameScene (GestureScene):
 		self.chain_reaction = 1
 		self.update_coords_to_destroy(self.falling_squares)
 			
-	def update_coords_to_destroy(self, seed_squares):
+	def update_coords_to_destroy(self, seed_squares, kinds_to_destroy=None):
 		# starting with each square in self.falling_squares, check to see if it is
 		# part of 3 or more blocks horizontally, vertically, or diagonally.
 		self.coords_to_destroy = set()
+		
+		if kinds_to_destroy:
+			for kind in kinds_to_destroy:
+				for coord in self.static_squares:
+					square = self.static_squares[coord]
+					if square.kind == kind:
+						self.coords_to_destroy.add(coord)					
 		
 		for square in seed_squares:
 			coords = square.coords
@@ -323,7 +349,7 @@ class ColumnsGameScene (GestureScene):
 			for column in range(NUM_COLUMNS):
 				if (NUM_ROWS, column) in self.static_squares:
 					self.set_game_over()
-		
+							
 	def check_for_line_at_coords(self, kind, coords, line):
 		coords_in_line = [coords]
 		length = 1
@@ -367,9 +393,13 @@ class ColumnsGameScene (GestureScene):
 		self.score += (len(coords) - 2)*self.chain_reaction
 		self.update_score()
 		
+		kinds_to_destroy = set()
+		
 		for coord in coords:
 			square = self.static_squares.pop(coord)
 			square.remove_from_parent()
+			if square.side_effect == DESTROY_ALL_BLOCKS_THIS_COLOR:
+				kinds_to_destroy.add(square.kind)
 		
 		# Close gaps in columns. Use any squares that are moved as seeds for the
 		# next check for squares to destroy
@@ -396,7 +426,7 @@ class ColumnsGameScene (GestureScene):
 							seed_squares.append(square)
 							
 		self.chain_reaction += 1
-		self.update_coords_to_destroy(seed_squares)					
+		self.update_coords_to_destroy(seed_squares, kinds_to_destroy)
 		
 	def set_alpha(self, coords, alpha):
 		for coord in coords:
@@ -432,14 +462,17 @@ class ColumnsGameScene (GestureScene):
 			
 		# rotate the falling squares
 		kinds = []
+		side_effects = []
 		
 		for square in self.falling_squares:
 			kinds.append(square.kind)
+			side_effects.append(square.side_effect)
 		
 		i = 0	
 		for square in self.falling_squares:
 			i = (i + 1) % 3
 			square.set_kind(kinds[i])
+			square.set_side_effect(side_effects[i])
 		
 	def do_swipe_right(self):
 		if self.paused:
