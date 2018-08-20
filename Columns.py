@@ -166,7 +166,9 @@ class ColumnsGameScene (GestureScene):
 		
 		# The scoreboard is a LabelNode that shows the score.
 		
-		self.scoreboard = LabelNode("Score: 0", font=('Arial Rounded MT Bold', 30.0))
+		font_size = self.square_len*0.75
+		
+		self.scoreboard = LabelNode("Score: 0", font=('Arial Rounded MT Bold', font_size))
 		self.scoreboard.position = (0, -self.square_len*((NUM_ROWS/2)))
 		self.root_node.add_child(self.scoreboard)
 		
@@ -177,7 +179,7 @@ class ColumnsGameScene (GestureScene):
 		self.message_background = SpriteNode(None, position=field_pos, size=field_size)
 		self.message_background.color = MESSAGE_BACKGROUND_COLOR
 		self.message_background.alpha = 0.8
-		self.message_label = LabelNode("foo", font=('Arial Rounded MT Bold', 30.0))
+		self.message_label = LabelNode("foo", font=('Arial Rounded MT Bold', font_size))
 		self.message_label.color = MESSAGE_TEXT_COLOR
 		self.message_background.add_child(self.message_label)
 		
@@ -390,7 +392,9 @@ class ColumnsGameScene (GestureScene):
 			self.destroy_phase += 1
 			
 	def remove_squares_at_coords(self, coords):
-		self.score += (len(coords) - 2)*self.chain_reaction
+		
+		score = max(1, len(coords) - 2)
+		self.score += score*self.chain_reaction
 		self.update_score()
 		
 		kinds_to_destroy = set()
