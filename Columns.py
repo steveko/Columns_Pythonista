@@ -272,9 +272,10 @@ class ColumnsGameScene (GestureScene):
 		
 		for i in range(3):
 			square = self.create_square(random.randrange(NUM_COLORS), (18+i, 3))
-			if random.randrange(100) < SPECIAL_BLOCK_PERCENTAGE:
-				square.set_side_effect(DESTROY_ALL_BLOCKS_THIS_COLOR)
 			self.falling_squares.append(square)
+
+		if random.randrange(100) < SPECIAL_BLOCK_PERCENTAGE:
+			random.choice(self.falling_squares).set_side_effect(DESTROY_ALL_BLOCKS_THIS_COLOR)
 
 		self.last_moved = self.t
 		
