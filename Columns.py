@@ -37,6 +37,8 @@ SPEEDUP_FACTOR = 0.8
 DESTROY_ALL_BLOCKS_THIS_COLOR = 1
 SPECIAL_BLOCK_PERCENTAGE = 5
 
+COLUMN_GUIDE_ALPHA = 0.10
+
 class SquareNode (SpriteNode):
 	
 	def __init__(self, kind, coords, side_effect=None):
@@ -164,8 +166,13 @@ class ColumnsGameScene (GestureScene):
 		self.field.color = FIELD_COLOR
 		self.root_node.add_child(self.field)
 		
-		# The scoreboard is a LabelNode that shows the score.
+		# The column_guide node is an overlay that highlights the column of the falling piece.
+		self.column_guide = SpriteNode(None, position=(-self.square_len/2, self.square_len), size=(self.square_len, self.square_len*NUM_ROWS))
+		self.column_guide.alpha = COLUMN_GUIDE_ALPHA
+		self.column_guide.color = 'black'
+		self.root_node.add_child(self.column_guide)
 		
+		# The scoreboard is a LabelNode that shows the score.
 		font_size = self.square_len*0.75
 		
 		self.scoreboard = LabelNode("Score: 0", font=('Arial Rounded MT Bold', font_size))
@@ -175,7 +182,6 @@ class ColumnsGameScene (GestureScene):
 		# message_background and message_label are used to show text overlaying the
 		# field. The opacity of the message_background can be set to completely
 		# obscure the field (e.g. when the game is paused).
-		
 		self.message_background = SpriteNode(None, position=field_pos, size=field_size)
 		self.message_background.color = MESSAGE_BACKGROUND_COLOR
 		self.message_background.alpha = 0.8
@@ -267,16 +273,32 @@ class ColumnsGameScene (GestureScene):
 		self.root_node.x_scale = scale_factor
 		self.root_node.y_scale = scale_factor
 		
+	def update_column_guide(self):
+		if self.falling_squares and len(self.falling_squares) == 3:
+			self.column_guide.alpha = COLUMN_GUIDE_ALPHA
+			(_, column) = self.falling_squares[0].coords
+			pos = self.column_guide.position
+			pos.x = (column - 2)*self.square_len - self.square_len/2
+			self.column_guide.position = pos
+		else:
+			self.column_guide.alpha = 0.0
+		
 	def new_falling_piece(self):
+		if self.falling_squares and len(self.falling_squares) == 3:
+			(_, col) = self.falling_squares[0].coords
+		else:
+			col = 3
+			
 		self.falling_squares = []
 		
 		for i in range(3):
-			square = self.create_square(random.randrange(NUM_COLORS), (18+i, 3))
+			square = self.create_square(random.randrange(NUM_COLORS), (18+i, col))
 			self.falling_squares.append(square)
 
 		if random.randrange(100) < SPECIAL_BLOCK_PERCENTAGE:
 			random.choice(self.falling_squares).set_side_effect(DESTROY_ALL_BLOCKS_THIS_COLOR)
 
+		self.update_column_guide()
 		self.last_moved = self.t
 		
 	def position_for_coords(self, coords):
@@ -488,6 +510,7 @@ class ColumnsGameScene (GestureScene):
 				if (row, col+1) not in self.static_squares:
 					for square in self.falling_squares:
 						self.move_square(square, 0, 1)
+					self.update_column_guide()
 		
 	def do_swipe_left(self):
 		if self.paused:
@@ -498,6 +521,7 @@ class ColumnsGameScene (GestureScene):
 				if (row, col-1) not in self.static_squares:
 					for square in self.falling_squares:
 						self.move_square(square, 0, -1)
+					self.update_column_guide()
 				
 	def do_swipe_down(self):
 		if self.paused:
